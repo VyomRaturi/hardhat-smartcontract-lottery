@@ -53,9 +53,9 @@ module.exports = async ({ deployments, getNamedAccounts }) => {
   const consumerAddTxn = await _vrfCoordinator.addConsumer(subId, raffle.address)
   await consumerAddTxn.wait(1)
 
-  if (!localNetworks.includes(network.name) && process.env.ETHERSCAN_API_KEY) {
-    await verifyContract(raffle.address, args)
-  }
+  // if (!localNetworks.includes(network.name) && process.env.ETHERSCAN_API_KEY) {
+  //   await verifyContract(raffle.address, args)
+  // }
 }
 
 module.exports.tags = ["main"]

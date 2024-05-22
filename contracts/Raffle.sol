@@ -21,14 +21,15 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
         uint256 raffleBalance,
         RaffleState raffleState
     );
+    error Raffle__AlreadyEntered();
 
     // state variables
     uint256 private immutable i_fees;
     uint256 private immutable i_interval;
     uint256 private s_lastTimestamp;
     address[] private s_participants;
-    // mapping(address user => uint256 lastRoundPlayed) private userRound;
-    // uint256 private s_round;
+    mapping(address user => uint256 lastRoundPlayed) private userRound;
+    uint256 private s_round;
     address private s_recentWinner;
     VRFCoordinatorV2Interface private immutable i_vrfCoordinator;
 
@@ -40,31 +41,41 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
     RaffleState raffleState;
 
     // Events
-    event EnteredRaflle(address indexed user);
+    event EnteredRaffle(
+        address indexed user,
+        uint256 indexed amount,
+        uint256 indexed round
+    );
     event RequestedRandomWords(uint256 indexed requestId);
     event WinnerSelected(address indexed winner);
 
     constructor(
-        address vrfCoordinatorAddr,
         uint256 fees,
+        uint256 interval,
+        address vrfCoordinatorAddr,
         bytes32 gasLane,
-        uint64 subscriptionId,
-        uint32 callbackGasLimit,
-        uint256 interval
+        uint64 subId,
+        uint32 callbackGasLimit
     ) VRFConsumerBaseV2(vrfCoordinatorAddr) {
         i_fees = fees;
         i_vrfCoordinator = VRFCoordinatorV2Interface(vrfCoordinatorAddr);
         i_gasLane = gasLane;
-        i_subId = subscriptionId;
+        i_subId = subId;
         i_callbackGasLimit = callbackGasLimit;
         raffleState = RaffleState.OPEN;
         s_lastTimestamp = block.timestamp;
         i_interval = interval;
+        s_round = 1;
+        s_recentWinner = address(0);
     }
 
-    function enterRaflle() public payable {
+    function enterRaffle() public payable {
         if (raffleState == RaffleState.CALCULATING) {
             revert Raffle__NotOpen();
+        }
+
+        if (userRound[msg.sender] == s_round) {
+            revert Raffle__AlreadyEntered();
         }
 
         if (msg.value < i_fees) {
@@ -72,8 +83,9 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
         }
 
         s_participants.push(payable(msg.sender));
+        userRound[msg.sender] = s_round;
 
-        emit EnteredRaflle(msg.sender);
+        emit EnteredRaffle(msg.sender, msg.value, s_round);
     }
 
     function checkUpkeep(
@@ -125,7 +137,7 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
             revert Raffle__EthTransferFailed();
         }
         s_recentWinner = winner;
-        //     s_round += 1;
+        s_round += 1;
         s_participants = new address[](0);
         s_lastTimestamp = block.timestamp;
         raffleState = RaffleState.OPEN;
@@ -136,9 +148,9 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
         return s_recentWinner;
     }
 
-    // function getCurrentRound() external view returns (uint256) {
-    //     return s_round;
-    // }
+    function getCurrentRound() external view returns (uint256) {
+        return s_round;
+    }
 
     function getParticipant(uint256 idx) external view returns (address) {
         return s_participants[idx];
@@ -152,11 +164,11 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
         return s_participants.length;
     }
 
-    // function getUserLastRoundPlayed(
-    //     address user
-    // ) external view returns (uint256) {
-    //     return userRound[user];
-    // }
+    function getUserLastRoundPlayed(
+        address user
+    ) external view returns (uint256) {
+        return userRound[user];
+    }
 
     function getLastTimestamp() external view returns (uint256) {
         return s_lastTimestamp;

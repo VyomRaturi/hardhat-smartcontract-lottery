@@ -1,13 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
 import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 
-contract Raffle is VRFConsumerBaseV2 {
+contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
+    // Type declarations
+    enum RaffleState {
+        OPEN,
+        CALCULATING
+    }
+
     // Errors
     error Raffle__LessEthSent();
     error Raffle__EthTransferFailed();
+    error Raffle__NotOpen();
 
     // state variables
     uint256 private immutable i_fees;
@@ -24,6 +32,7 @@ contract Raffle is VRFConsumerBaseV2 {
     uint16 private constant REQUEST_CONFIRMATIONS = 3;
     uint32 private immutable i_callbackGasLimit;
     uint32 private constant NUM_WORDS = 1;
+    RaffleState raffleState;
 
     // Events
     event EnteredRaflle(address indexed user);
@@ -42,14 +51,56 @@ contract Raffle is VRFConsumerBaseV2 {
         i_gasLane = gasLane;
         i_subId = subscriptionId;
         i_callbackGasLimit = callbackGasLimit;
+        raffleState = RaffleState.OPEN;
     }
 
     function enterRaflle() public payable {
+        if (raffleState == RaffleState.CALCULATING) {
+            revert Raffle__NotOpen();
+        }
+
         if (msg.value < i_fees) {
             revert Raffle__LessEthSent();
         }
+
         s_participants.push(payable(msg.sender));
+
         emit EnteredRaflle(msg.sender);
+    }
+
+    function checkUpkeep(
+        bytes memory /* checkData */
+    ) public view returns (bool upkeepNeeded, bytes memory performData) {
+        bool hasBalance = (address(this).balance > 0);
+        bool intervalPassed = (block.timestamp - s_lastTimestamp >= i_interval);
+        bool isOpen = (raffleState == RaffleState.OPEN);
+
+        upkeepNeeded = (hasBalance && intervalPassed && isOpen);
+        performData = "";
+    }
+
+    function performUpkeep(bytes calldata /* performData */) external {
+        (bool upkeepNeeded, ) = checkUpkeep("");
+
+        if (!upkeepNeeded) {
+            revert Raffle__UpkeepNotNeeded(
+                block.timestamp - s_lastTimestamp,
+                address(this).balance,
+                raffleState
+            );
+        }
+
+        raffleState = RaffleState.CALCULATING;
+
+        uint256 requestId = i_vrfCoordinator.requestRandomWords(
+            i_gasLane,
+            i_subId,
+            REQUEST_CONFIRMATIONS,
+            i_callbackGasLimit,
+            NUM_WORDS
+        );
+
+        emit RequestedRandomWords(requestId);
     }
 
     function fulfillRandomWords(
@@ -67,9 +118,9 @@ contract Raffle is VRFConsumerBaseV2 {
         }
         s_recentWinner = winner;
         //     s_round += 1;
-        //     s_participants = new address[](0);
+        s_participants = new address[](0);
         //     s_lastTimestamp = block.timestamp;
-        //     raffleState = RaffleState.OPEN;
+        raffleState = RaffleState.OPEN;
     }
 
     // View / Pure functions

@@ -16,6 +16,11 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
     error Raffle__LessEthSent();
     error Raffle__EthTransferFailed();
     error Raffle__NotOpen();
+    error Raffle__UpkeepNotNeeded(
+        uint256 intervalPassed,
+        uint256 raffleBalance,
+        RaffleState raffleState
+    );
 
     // state variables
     uint256 private immutable i_fees;
@@ -122,16 +127,20 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
         s_recentWinner = winner;
         //     s_round += 1;
         s_participants = new address[](0);
-        //     s_lastTimestamp = block.timestamp;
+        s_lastTimestamp = block.timestamp;
         raffleState = RaffleState.OPEN;
     }
 
     // View / Pure functions
-    function getEntranceFee() public view returns (uint256) {
-        return i_fees;
+    function getRecentWinner() external view returns (address) {
+        return s_recentWinner;
     }
 
-    function getParticipant(uint256 idx) public view returns (address) {
+    // function getCurrentRound() external view returns (uint256) {
+    //     return s_round;
+    // }
+
+    function getParticipant(uint256 idx) external view returns (address) {
         return s_participants[idx];
     }
 
@@ -143,7 +152,49 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
         return s_participants.length;
     }
 
-    function getRecentWinner() external view returns (address) {
-        return s_recentWinner;
+    // function getUserLastRoundPlayed(
+    //     address user
+    // ) external view returns (uint256) {
+    //     return userRound[user];
+    // }
+
+    function getLastTimestamp() external view returns (uint256) {
+        return s_lastTimestamp;
+    }
+
+    function getRaffleFees() external view returns (uint256) {
+        return i_fees;
+    }
+
+    function getInterval() external view returns (uint256) {
+        return i_interval;
+    }
+
+    function getVrfCoordinator() external view returns (address) {
+        return address(i_vrfCoordinator);
+    }
+
+    function getGasLane() external view returns (bytes32) {
+        return i_gasLane;
+    }
+
+    function getSubId() external view returns (uint64) {
+        return i_subId;
+    }
+
+    function getCallbackGasLimit() external view returns (uint32) {
+        return i_callbackGasLimit;
+    }
+
+    function getRaffleState() external view returns (RaffleState) {
+        return raffleState;
+    }
+
+    function getRequestConfirmations() external pure returns (uint16) {
+        return REQUEST_CONFIRMATIONS;
+    }
+
+    function getNumWords() external pure returns (uint32) {
+        return NUM_WORDS;
     }
 }

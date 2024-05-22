@@ -32,7 +32,10 @@ module.exports = {
   defaultNetwork: "hardhat",
 
   networks: {
-    hardhat: {},
+    hardhat: {
+      chainId: 31337,
+      blockConfirmations: 1,
+    },
 
     sepolia: {
       chainId: 11155111,
@@ -45,6 +48,9 @@ module.exports = {
   namedAccounts: {
     deployer: {
       default: 0,
+    },
+    player1: {
+      default: 1,
     },
   },
 

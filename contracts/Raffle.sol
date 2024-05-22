@@ -19,8 +19,8 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
 
     // state variables
     uint256 private immutable i_fees;
-    // uint256 private immutable i_interval;
-    // uint256 private s_lastTimestamp;
+    uint256 private immutable i_interval;
+    uint256 private s_lastTimestamp;
     address[] private s_participants;
     // mapping(address user => uint256 lastRoundPlayed) private userRound;
     // uint256 private s_round;
@@ -44,7 +44,8 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
         uint256 fees,
         bytes32 gasLane,
         uint64 subscriptionId,
-        uint32 callbackGasLimit
+        uint32 callbackGasLimit,
+        uint256 interval
     ) VRFConsumerBaseV2(vrfCoordinatorAddr) {
         i_fees = fees;
         i_vrfCoordinator = VRFCoordinatorV2Interface(vrfCoordinatorAddr);
@@ -52,6 +53,8 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
         i_subId = subscriptionId;
         i_callbackGasLimit = callbackGasLimit;
         raffleState = RaffleState.OPEN;
+        s_lastTimestamp = block.timestamp;
+        i_interval = interval;
     }
 
     function enterRaflle() public payable {
